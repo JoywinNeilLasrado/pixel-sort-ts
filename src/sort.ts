@@ -17,9 +17,9 @@ function sortSegment(pixels: Pixel[], interval: Interval, key: SortKey, reverse:
   }
 }
 
-function sortStrip(pixels: Pixel[], opts: SortOptions): Pixel[] {
+function sortStrip(pixels: Pixel[], opts: SortOptions, isExcluded?: (idx: number) => boolean): Pixel[] {
   const result = [...pixels];
-  const intervals = buildIntervals(result, opts);
+  const intervals = buildIntervals(result, opts, isExcluded);
 
   for (const interval of intervals) {
     if (interval[1] - interval[0] > 1) {
@@ -33,7 +33,8 @@ function sortStrip(pixels: Pixel[], opts: SortOptions): Pixel[] {
 export function sortRows(data: Uint8Array, width: number, height: number, opts: SortOptions): void {
   for (let y = 0; y < height; y++) {
     const pixels = readRow(data, y, width);
-    const sorted = sortStrip(pixels, opts);
+    const isExcluded = opts.exclude ? (x: number) => opts.exclude!.some(([x1, y1, x2, y2]) => x >= x1 && x <= x2 && y >= y1 && y <= y2) : undefined;
+    const sorted = sortStrip(pixels, opts, isExcluded);
     writeRow(data, y, width, sorted);
   }
 }
@@ -46,7 +47,8 @@ export function sortColumns(
 ): void {
   for (let x = 0; x < width; x++) {
     const pixels = readCol(data, x, width, height);
-    const sorted = sortStrip(pixels, opts);
+    const isExcluded = opts.exclude ? (y: number) => opts.exclude!.some(([x1, y1, x2, y2]) => x >= x1 && x <= x2 && y >= y1 && y <= y2) : undefined;
+    const sorted = sortStrip(pixels, opts, isExcluded);
     writeCol(data, x, width, sorted);
   }
 }

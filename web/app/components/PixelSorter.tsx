@@ -37,6 +37,7 @@ export default function PixelSorter() {
   const [dragging, setDragging] = useState(false);
   const [fileName, setFileName] = useState('');
   const [mimeType, setMimeType] = useState('image/png');
+  const [excludeStr, setExcludeStr] = useState('');
   const source = useRef<SourceImage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -120,9 +121,21 @@ export default function PixelSorter() {
       workerRef.current = null;
     };
 
+    const excludeOpt = excludeStr
+      .split(/[\s;]+/)
+      .map(s => s.trim())
+      .filter(Boolean)
+      .map(s => s.split(',').map(n => parseInt(n.trim(), 10)))
+      .filter(arr => arr.length === 4 && arr.every(n => !isNaN(n))) as Array<[number, number, number, number]>;
+
+    const finalOpts = { ...opts };
+    if (excludeOpt.length > 0) {
+      finalOpts.exclude = excludeOpt;
+    }
+
     // Transfer ownership of the buffer to the worker (zero-copy)
-    worker.postMessage({ buffer: data.buffer, width, height, opts }, [data.buffer]);
-  }, [opts, outputUrl, mimeType]);
+    worker.postMessage({ buffer: data.buffer, width, height, opts: finalOpts }, [data.buffer]);
+  }, [opts, outputUrl, mimeType, excludeStr]);
 
   const download = useCallback(() => {
     if (!outputUrl) return;
@@ -247,6 +260,26 @@ export default function PixelSorter() {
             </label>
           </Field>
 
+          <Field label="exclude masks" tooltip="Exclude regions formatted as x1,y1,x2,y2 separated by spaces. You can also drag on the original image to draw a rect.">
+            <textarea
+              value={excludeStr}
+              onChange={e => setExcludeStr(e.target.value)}
+              placeholder={"0,0,100,100\n200,200,300,300"}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                color: 'var(--text)',
+                padding: '8px',
+                resize: 'none',
+                minHeight: '60px',
+                fontFamily: 'monospace',
+                fontSize: '11px',
+              }}
+            />
+          </Field>
+
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <button
               onClick={run}
@@ -341,6 +374,16 @@ export default function PixelSorter() {
                 label="original"
                 url={inputUrl}
                 onReplace={() => fileInputRef.current?.click()}
+                onExclude={rect => {
+                  const s = rect.join(',');
+                  setExcludeStr(prev => prev ? `${prev}\n${s}` : s);
+                }}
+                excludeRegions={excludeStr
+                  .split(/[\s;]+/)
+                  .map(s => s.trim())
+                  .filter(Boolean)
+                  .map(s => s.split(',').map(n => parseInt(n.trim(), 10)))
+                  .filter(arr => arr.length === 4 && arr.every(n => !isNaN(n))) as Array<[number, number, number, number]>}
               />
               {outputUrl && <ImagePane label="sorted" url={outputUrl} />}
               <input
@@ -446,11 +489,97 @@ function ImagePane({
   label,
   url,
   onReplace,
+  onExclude,
+  excludeRegions = [],
 }: {
   label: string;
   url: string;
   onReplace?: () => void;
+  onExclude?: (rect: [number, number, number, number]) => void;
+  excludeRegions?: Array<[number, number, number, number]>;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [drawing, setDrawing] = useState<{x: number, y: number, w: number, h: number} | null>(null);
+  const [startPos, setStartPos] = useState<{x: number, y: number} | null>(null);
+
+  const getTransform = () => {
+    if (!containerRef.current || !imgRef.current) return null;
+    const container = containerRef.current.getBoundingClientRect();
+    const img = imgRef.current;
+    
+    const viewRatio = container.width / container.height;
+    const imgRatio = img.naturalWidth / img.naturalHeight;
+    
+    let drawWidth = container.width;
+    let drawHeight = container.height;
+    let drawX = 0;
+    let drawY = 0;
+    
+    if (viewRatio > imgRatio) {
+      drawWidth = container.height * imgRatio;
+      drawX = (container.width - drawWidth) / 2;
+    } else {
+      drawHeight = container.width / imgRatio;
+      drawY = (container.height - drawHeight) / 2;
+    }
+
+    const scaleX = img.naturalWidth / drawWidth;
+    const scaleY = img.naturalHeight / drawHeight;
+
+    return { offsetX: drawX, offsetY: drawY, scaleX, scaleY };
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (!onExclude || !containerRef.current || !imgRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    setStartPos({ x, y });
+    setDrawing({ x, y, w: 0, h: 0 });
+    containerRef.current.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!startPos || !onExclude || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    setDrawing({
+      x: Math.min(startPos.x, x),
+      y: Math.min(startPos.y, y),
+      w: Math.abs(x - startPos.x),
+      h: Math.abs(y - startPos.y),
+    });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (!startPos || !onExclude || !drawing || !containerRef.current) return;
+    containerRef.current.releasePointerCapture(e.pointerId);
+    
+    setStartPos(null);
+    setDrawing(null);
+
+    const t = getTransform();
+    if (!t) return;
+
+    const x1 = Math.round((drawing.x - t.offsetX) * t.scaleX);
+    const y1 = Math.round((drawing.y - t.offsetY) * t.scaleY);
+    const x2 = Math.round((drawing.x + drawing.w - t.offsetX) * t.scaleX);
+    const y2 = Math.round((drawing.y + drawing.h - t.offsetY) * t.scaleY);
+
+    const nx1 = Math.max(0, Math.min(x1, imgRef.current!.naturalWidth));
+    const ny1 = Math.max(0, Math.min(y1, imgRef.current!.naturalHeight));
+    const nx2 = Math.max(0, Math.min(x2, imgRef.current!.naturalWidth));
+    const ny2 = Math.max(0, Math.min(y2, imgRef.current!.naturalHeight));
+
+    if (nx2 > nx1 && ny2 > ny1) {
+      onExclude([nx1, ny1, nx2, ny2]);
+    }
+  };
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -482,6 +611,10 @@ function ImagePane({
         )}
       </div>
       <div
+        ref={containerRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
         style={{
           flex: 1,
           background: 'var(--surface)',
@@ -491,13 +624,53 @@ function ImagePane({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          position: 'relative',
+          cursor: onExclude ? 'crosshair' : 'default',
         }}
       >
         <img
+          ref={imgRef}
           src={url}
           alt={label}
-          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
+          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block', pointerEvents: 'none' }}
         />
+        {onExclude && drawing && (
+          <div
+            style={{
+              position: 'absolute',
+              left: drawing.x,
+              top: drawing.y,
+              width: drawing.w,
+              height: drawing.h,
+              border: '1px dashed var(--accent)',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+        {onExclude && containerRef.current && imgRef.current && excludeRegions.map((r, i) => {
+          const t = getTransform();
+          if (!t) return null;
+          const left = r[0] / t.scaleX + t.offsetX;
+          const top = r[1] / t.scaleY + t.offsetY;
+          const width = (r[2] - r[0]) / t.scaleX;
+          const height = (r[3] - r[1]) / t.scaleY;
+          return (
+            <div
+              key={i}
+              style={{
+                position: 'absolute',
+                left,
+                top,
+                width,
+                height,
+                border: '1px solid rgba(255,0,0,0.5)',
+                backgroundColor: 'rgba(255,0,0,0.1)',
+                pointerEvents: 'none',
+              }}
+            />
+          );
+        })}
       </div>
     </div>
   );

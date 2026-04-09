@@ -91,3 +91,22 @@ describe('intervals: buildIntervals() — random mode', () => {
     expect(intervals.length).to.be.greaterThan(0);
   });
 });
+
+describe('intervals: buildIntervals() — exclusions', () => {
+  const BASE_OPTS = { lo: 0, hi: 1, maxLen: 100 } as any;
+
+  it('splits full mode around excluded pixel', () => {
+    const pixels = [px(0, 0, 0), px(0, 0, 0), px(0, 0, 0)];
+    expect(buildIntervals(pixels, { ...BASE_OPTS, mode: 'full' }, i => i === 1)).to.deep.equal([[0, 1], [2, 3]]);
+  });
+
+  it('splits threshold mode around excluded pixel', () => {
+    const pixels = [px(128, 128, 128), px(128, 128, 128), px(128, 128, 128)];
+    expect(buildIntervals(pixels, { mode: 'threshold', lo: 0.25, hi: 0.8, maxLen: 100 }, i => i === 1)).to.deep.equal([[0, 1], [2, 3]]);
+  });
+
+  it('splits random mode around excluded pixel', () => {
+    const pixels = [px(0, 0, 0), px(0, 0, 0), px(0, 0, 0)];
+    expect(buildIntervals(pixels, { ...BASE_OPTS, mode: 'random' }, i => i === 1)).to.deep.equal([[0, 1], [2, 3]]);
+  });
+});

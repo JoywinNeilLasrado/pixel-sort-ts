@@ -19,4 +19,5 @@ export interface SortOptions {
   hi: number;
   reverse: boolean;
   maxLen: number;
+  exclude?: Array<[number, number, number, number]>;
 }

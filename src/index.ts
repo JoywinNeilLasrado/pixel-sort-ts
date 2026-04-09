@@ -34,6 +34,7 @@ function defaultOutputPath(input: string, opts: SortOptions): string {
   if (opts.mode === 'threshold') parts.push(`${opts.lo}-${opts.hi}`);
   if (opts.mode === 'random') parts.push(`${opts.maxLen}`);
   if (opts.reverse) parts.push('r');
+  if (opts.exclude && opts.exclude.length > 0) parts.push('excl');
 
   return path.join(path.dirname(input), `${base}_${parts.join('_')}${ext}`);
 }
@@ -54,6 +55,18 @@ program
     'Max interval length for random mode (pixels)',
     parseInt,
     DEFAULTS.maxLen,
+  )
+  .option(
+    '--exclude <coords>',
+    'Exclude rectangular region x1,y1,x2,y2 (can be repeated)',
+    (val, prev: Array<[number, number, number, number]>) => {
+      const parts = val.split(',').map(n => parseInt(n.trim(), 10));
+      if (parts.length !== 4 || parts.some(isNaN)) {
+        console.error(`Invalid exclude value: "${val}". Must be "x1,y1,x2,y2"`);
+        process.exit(1);
+      }
+      return (prev || []).concat([parts as any as [number, number, number, number]]);
+    }
   )
   .action(async (input: string, opts) => {
     if (!DIRECTIONS.includes(opts.direction)) {
@@ -77,6 +90,7 @@ program
       hi: opts.hi,
       reverse: opts.reverse,
       maxLen: opts.maxLen,
+      exclude: opts.exclude,
     };
 
     const output = opts.output ?? defaultOutputPath(input, sortOpts);

@@ -118,4 +118,15 @@ describe('cli: CLI — valid options', () => {
     const { outPath } = run(['-d', 'vertical', '-k', 'hue', '-m', 'full']);
     expect(path.basename(outPath)).to.include('v_hue_full');
   });
+
+  it('honours --exclude regions and appends excl to filename', () => {
+    const { outPath } = run(['-d', 'vertical', '-m', 'full', '--exclude', '0,0,1,1']);
+    expect(path.basename(outPath)).to.include('_excl');
+  });
+
+  it('exits 1 with an error message for invalid exclude format', () => {
+    const result = cli([fixturePath, '--exclude', '1,2,abc']);
+    expect(result.status).to.equal(1);
+    expect(result.stderr).to.include('Invalid exclude value:');
+  });
 });
