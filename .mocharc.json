@@ -1,0 +1,7 @@
+{
+  "import": "tsx",
+  "require": ["test/setup.ts"],
+  "spec": "test/**/*.test.ts",
+  "timeout": 10000,
+  "tsconfig": "tsconfig.test.json"
+}

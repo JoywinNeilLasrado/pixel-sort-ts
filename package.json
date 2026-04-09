@@ -1,0 +1,49 @@
+{
+  "name": "pixel-sort",
+  "version": "1.0.0",
+  "description": "Configurable pixel sorting CLI tool for glitch art",
+  "license": "MIT",
+  "author": "Andrew Brooke <andrewbrooke15@gmail.com>",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "bin": {
+    "pixel-sort": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "lint": "eslint src test",
+    "lint:fix": "eslint src test --fix",
+    "format": "prettier --write src test",
+    "format:check": "prettier --check src test",
+    "test": "mocha",
+    "test:coverage": "nyc mocha"
+  },
+  "dependencies": {
+    "commander": "^14.0.3",
+    "jimp": "^1.6.1"
+  },
+  "nyc": {
+    "include": ["src/**/*.ts"],
+    "exclude": ["src/constants.ts", "src/types.ts"],
+    "extension": [".ts"],
+    "reporter": ["text", "html"],
+    "all": true
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^25.5.2",
+    "nyc": "^17.0.0",
+    "chai": "^6.2.2",
+    "eslint": "^10.2.0",
+    "eslint-config-prettier": "^10.1.8",
+    "mocha": "^12.0.0-beta-9.2",
+    "prettier": "^3.8.1",
+    "tsx": "^4.0.0",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.1"
+  }
+}

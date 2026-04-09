@@ -1,0 +1,54 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0e0e0e;
+  --surface: #1a1a1a;
+  --border: #2e2e2e;
+  --text: #e0e0e0;
+  --muted: #666;
+  --accent: #c8ff00;
+  --accent-dim: #9abf00;
+  --radius: 6px;
+  --font: 'Courier New', Courier, monospace;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+}
+
+button {
+  font-family: var(--font);
+  cursor: pointer;
+}
+
+input[type='range'] {
+  accent-color: var(--accent);
+}
+
+select,
+input[type='number'] {
+  font-family: var(--font);
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  width: 100%;
+}
+
+select:focus,
+input[type='number']:focus {
+  outline: 1px solid var(--accent);
+}

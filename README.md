@@ -1,0 +1,112 @@
+# pixel-sort
+
+A configurable pixel sorting CLI tool. Pixel sorting is a glitch art technique that sorts pixels within an image by a chosen property (brightness, hue, saturation, etc.), producing streaked and distorted visual effects.
+
+## Install
+
+```bash
+npm install
+npm run build
+```
+
+To use as a global command:
+
+```bash
+npm link
+```
+
+## Usage
+
+```bash
+pixel-sort <input> [options]
+# or without linking:
+node dist/index.js <input> [options]
+```
+
+The input image is never modified. Output is written to a new file named after the input with the active options appended (e.g. `photo_h_bri_thr_0.25-0.8.jpg`), or to a path you specify with `-o`.
+
+## Options
+
+| Flag              | Default      | Description                                                                                             |
+| ----------------- | ------------ | ------------------------------------------------------------------------------------------------------- |
+| `-d, --direction` | `horizontal` | Sort direction: `horizontal` \| `vertical` \| `both`                                                    |
+| `-k, --key`       | `brightness` | Property to sort by: `brightness` \| `hue` \| `saturation` \| `lightness` \| `red` \| `green` \| `blue` |
+| `-m, --mode`      | `threshold`  | How to define sortable intervals: `threshold` \| `full` \| `random`                                     |
+| `--lo`            | `0.25`       | Lower brightness bound for `threshold` mode (0–1)                                                       |
+| `--hi`            | `0.8`        | Upper brightness bound for `threshold` mode (0–1)                                                       |
+| `-r, --reverse`   | `false`      | Sort in descending order                                                                                |
+| `--max-len`       | `200`        | Maximum interval length in pixels for `random` mode                                                     |
+| `-o, --output`    | auto         | Output file path                                                                                        |
+
+### Interval modes
+
+- **`threshold`** — only sorts runs of pixels whose brightness falls within `[--lo, --hi]`. Pixels outside the range act as boundaries, preserving the structure of very dark or very bright areas. This is the classic pixel sort effect.
+- **`full`** — sorts the entire row or column as one interval. Produces a fully sorted, rainbow-like streak across the image.
+- **`random`** — splits each row/column into random-length intervals (up to `--max-len` pixels) and sorts each one independently. Produces a choppier, more fragmented effect.
+
+### Sort keys
+
+| Key                      | Sorts by                                         |
+| ------------------------ | ------------------------------------------------ |
+| `brightness`             | Perceived luminance `(0.299R + 0.587G + 0.114B)` |
+| `hue`                    | HSL hue (color wheel position)                   |
+| `saturation`             | HSL saturation (color intensity)                 |
+| `lightness`              | HSL lightness                                    |
+| `red` / `green` / `blue` | Raw channel value                                |
+
+## Examples
+
+```bash
+# Default: horizontal, brightness, threshold
+pixel-sort photo.jpg
+
+# Vertical sort by hue across full columns
+pixel-sort photo.jpg -d vertical -k hue -m full
+
+# Both directions, sort by saturation, tight threshold
+pixel-sort photo.jpg -d both -k saturation --lo 0.4 --hi 0.7
+
+# Random intervals, reversed sort, custom output path
+pixel-sort photo.jpg -m random --max-len 300 -r -o out.png
+
+# Full horizontal sort by red channel
+pixel-sort photo.jpg -k red -m full
+```
+
+## Web UI
+
+A browser-based version lives in `web/`. It runs entirely client-side — images are never uploaded; all processing happens in the browser via the Canvas API.
+
+```bash
+cd web
+npm install
+npm run dev   # http://localhost:3000
+```
+
+To deploy on Vercel, import the repo and set the **root directory** to `web/`.
+
+### Web dev commands
+
+```bash
+npm run lint          # ESLint
+npm run lint:fix      # ESLint with auto-fix
+npm run format        # Prettier
+npm run format:check  # Prettier check (CI)
+```
+
+## CLI Development
+
+```bash
+npm run dev -- photo.jpg [options]    # run via ts-node without building
+npm run build                         # compile to dist/
+npm run lint                          # ESLint
+npm run lint:fix                      # ESLint with auto-fix
+npm run format                        # Prettier
+npm run format:check                  # Prettier check (CI)
+npm run test                          # Mocha
+npm run test:coverage                 # nyc
+```
+
+## Supported formats
+
+JPEG, PNG, BMP, GIF, TIFF (via [jimp](https://github.com/jimp-dev/jimp)).
